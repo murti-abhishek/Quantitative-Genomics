@@ -1,0 +1,621 @@
+---
+title: "Project - am3248 - Abhishek Murti"
+author: "Abhishek Murti (am3248)"
+date: "05/12/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## PROJECT
+
+```{r}
+
+# Import genotype data
+geno_import <- read.csv("./data_files/genotypes.csv",header = TRUE, stringsAsFactors = FALSE)
+geno_import <- subset(geno_import,select = -c(1))
+geno_data <- as.matrix(geno_import)
+
+# Import phenotype data
+pheno_import <- read.csv("./data_files/phenotypes.csv",header = TRUE, stringsAsFactors = FALSE)
+
+```
+
+
+```{r}
+
+SNP_info <- read.csv("./data_files/SNP_info.csv",header = TRUE, stringsAsFactors = FALSE)
+gene_info <- read.csv("./data_files/gene_info.csv",header = TRUE, stringsAsFactors = FALSE)
+
+```
+
+```{r}
+
+# Check if phenotype data is normally distributed
+
+#jpeg('Pheno_normal_dist.jpg')
+par(mfrow = c(2,3))
+hist(pheno_import$ENSG00000164308.12,main="Phenotype - 1", xlab="Phenotype value", col="blue", freq=TRUE)
+hist(pheno_import$ENSG00000124587.9,main="Phenotype - 2", xlab="Phenotype value", col="blue", freq=TRUE)
+hist(pheno_import$ENSG00000180185.7,main="Phenotype - 3 ", xlab="Phenotype value", col="blue", freq=TRUE)
+hist(pheno_import$ENSG00000168827.9,main="Phenotype - 4", xlab="Phenotype value", col="blue", freq=TRUE)
+hist(pheno_import$ENSG00000136536.9,main="Phenotype - 5", xlab="Phenotype value", col="blue", freq=TRUE)
+
+#dev.off()
+
+# It is. Beautifully so. 
+
+```
+
+
+```{r}
+N = ncol(geno_data)
+cat("Number of SNP's : ",N)
+```
+
+## 3(a)
+```{r}
+library(MASS)
+xa_mat = matrix(NA, nrow = nrow(geno_data), ncol = ncol(geno_data))
+xd_mat = matrix(NA, nrow = nrow(geno_data), ncol = ncol(geno_data))
+
+for (i in 1:nrow(geno_data)){
+  for (j in 1:ncol(geno_data)){
+    if(geno_data[i,j] == 0){
+      xa_mat[i,j] = -1
+      xd_mat[i,j] = -1
+    }
+    else if(geno_data[i,j] == 2){
+      xa_mat[i,j] = 1
+      xd_mat[i,j] = -1
+    }
+    else{
+      xa_mat[i,j] = 0
+      xd_mat[i,j] = 1
+    }
+  }
+}
+
+
+pval_calculator <- function(pheno_input, xa_input, xd_input){
+  n_samples <- length(xa_input)
+  X_mx <- cbind(1,xa_input,xd_input)
+  
+  MLE_beta <- ginv(t(X_mx) %*% X_mx) %*% t(X_mx) %*% pheno_input
+  y_hat <- X_mx %*% MLE_beta
+  
+  SSM <- sum((y_hat - mean(pheno_input))^2)
+  SSE <- sum((pheno_input - y_hat)^2)
+  
+  df_M <- 2
+  df_E <- n_samples - 3 
+  
+  MSM <- SSM / df_M
+  MSE <- SSE / df_E
+  
+  Fstatistic <- MSM / MSE
+  
+  # to check if it is correct 
+  pval <- pf(Fstatistic, df_M, df_E,lower.tail = FALSE)
+  return(pval)
+}
+
+```
+
+```{r}
+
+pval_mx_1 <- rep(0,ncol(xa_mat))
+pval_mx_2 <- rep(0,ncol(xa_mat))
+pval_mx_3 <- rep(0,ncol(xa_mat))
+pval_mx_4 <- rep(0,ncol(xa_mat))
+pval_mx_5 <- rep(0,ncol(xa_mat))
+for(i in 1:ncol(xa_mat)){
+  pval_mx_1[i] <- pval_calculator(pheno_import$ENSG00000164308.12, xa_mat[,i], xd_mat[,i])
+  pval_mx_2[i] <- pval_calculator(pheno_import$ENSG00000124587.9, xa_mat[,i], xd_mat[,i])
+  pval_mx_3[i] <- pval_calculator(pheno_import$ENSG00000180185.7, xa_mat[,i], xd_mat[,i])
+  pval_mx_4[i] <- pval_calculator(pheno_import$ENSG00000168827.9, xa_mat[,i], xd_mat[,i])
+  pval_mx_5[i] <- pval_calculator(pheno_import$ENSG00000136536.9, xa_mat[,i], xd_mat[,i])
+}
+```
+
+
+```{r}
+library( ggplot2)
+
+plot_df <- data.frame(index = 1:length(pval_mx_1), pval = pval_mx_1)
+ggplot(plot_df, aes(index, -log10(pval_mx_1))) + geom_point() + xlab("SNP index") + ylab("-log10 pval")
+ggsave("./Results/ERAP2_Manhattan.jpg")
+
+plot_df <- data.frame(index = 1:length(pval_mx_2), pval = pval_mx_2)
+ggplot(plot_df, aes(index, -log10(pval_mx_2))) + geom_point() + xlab("SNP index") + ylab("-log10 pval")
+ggsave("./Results/PEX6_Manhattan.jpg")
+
+plot_df <- data.frame(index = 1:length(pval_mx_3), pval = pval_mx_3)
+ggplot(plot_df, aes(index, -log10(pval_mx_3))) + geom_point() + xlab("SNP index") + ylab("-log10 pval")
+ggsave("./Results/FAHD1_Manhattan.jpg")
+
+plot_df <- data.frame(index = 1:length(pval_mx_4), pval = pval_mx_4)
+ggplot(plot_df, aes(index, -log10(pval_mx_4))) + geom_point() + xlab("SNP index") + ylab("-log10 pval")
+ggsave("./Results/GFM1_Manhattan.jpg")
+
+plot_df <- data.frame(index = 1:length(pval_mx_5), pval = pval_mx_5)
+ggplot(plot_df, aes(index, -log10(pval_mx_5))) + geom_point() + xlab("SNP index") + ylab("-log10 pval")
+ggsave("./Results/MARCH7_Manhattan.jpg")
+
+```
+
+```{r}
+
+#aplha = 0.05/N
+
+idx = which(pval_mx_1 == min(pval_mx_1))
+rs_idx = colnames(geno_data)[idx]
+pos1 = SNP_info[SNP_info$id %in% rs_idx,]
+gene = gene_info[gene_info$chromosome==pos1[1,1],]$symbol
+gene = cbind(pos1, symbol=gene)
+print(gene)
+
+idx = which(pval_mx_2 == min(pval_mx_2))
+rs_idx = colnames(geno_data)[idx]
+pos1 = SNP_info[SNP_info$id %in% rs_idx,]
+gene = gene_info[gene_info$chromosome==pos1[1,1],]$symbol
+gene = cbind(pos1, symbol=gene)
+print(gene)
+
+idx = which(pval_mx_3 == min(pval_mx_3))
+rs_idx = colnames(geno_data)[idx]
+pos1 = SNP_info[SNP_info$id %in% rs_idx,]
+gene = gene_info[gene_info$chromosome==pos1[1,1],]$symbol
+gene = cbind(pos1, symbol=gene)
+print(gene)
+
+# idx = which(pval_mx_1 < alpha)
+# rs_idx = colnames(geno_data)[idx]
+# pos1 = SNP_info[SNP_info$id %in% rs_idx,]
+# gene = gene_info[gene_info$chromosome==pos1[1,1],]$symbol
+# gene = cbind(pos1, symbol=gene)
+# print(gene)
+
+```
+
+```{r}
+
+# Bonferrroni
+
+c=0
+for(j in pval_mx_1){
+  if(j < 0.05/N){
+    c=c+1
+  }
+}
+no_of_sig_snips = c
+cat("Number of significant SNP's for 1st phenotype : ",no_of_sig_snips,"\n")
+
+c=0
+for(j in pval_mx_2){
+  if(j < 0.05/N){
+    c=c+1
+  }
+}
+no_of_sig_snips = c
+cat("Number of significant SNP's for 2nd phenotype : ",no_of_sig_snips,"\n")
+
+c=0
+for(j in pval_mx_3){
+  if(j < 0.05/N){
+    c=c+1
+  }
+}
+no_of_sig_snips = c
+cat("Number of significant SNP's for 3rd phenotype : ",no_of_sig_snips,"\n")
+
+c=0
+for(j in pval_mx_4){
+  if(j < 0.05/N){
+    c=c+1
+  }
+}
+no_of_sig_snips = c
+cat("Number of significant SNP's for 4th phenotype : ",no_of_sig_snips,"\n")
+
+c=0
+for(j in pval_mx_5){
+  if(j < 0.05/N){
+    c=c+1
+  }
+}
+no_of_sig_snips = c
+cat("Number of significant SNP's for 5th phenotype : ",no_of_sig_snips,"\n")
+```
+
+```{r}
+
+pval_mx_1_corrected = p.adjust(pval_mx_1,method = "fdr")
+plot_df <- data.frame(index = 1:length(pval_mx_1_corrected), pval = pval_mx_1_corrected)
+ggplot(plot_df, aes(index, -log10(pval_mx_1_corrected))) + geom_point() + ggtitle("Manhattan Plot") + xlab("SNP index") + ylab("-log10 pval")
+
+pval_mx_2_corrected = p.adjust(pval_mx_2,method = "fdr")
+plot_df <- data.frame(index = 1:length(pval_mx_2_corrected), pval = pval_mx_2_corrected)
+ggplot(plot_df, aes(index, -log10(pval_mx_2_corrected))) + geom_point() + ggtitle("Manhattan Plot") + xlab("SNP index") + ylab("-log10 pval")
+
+pval_mx_3_corrected = p.adjust(pval_mx_3,method = "fdr")
+plot_df <- data.frame(index = 1:length(pval_mx_3_corrected), pval = pval_mx_3_corrected)
+ggplot(plot_df, aes(index, -log10(pval_mx_3_corrected))) + geom_point() + ggtitle("Manhattan Plot") + xlab("SNP index") + ylab("-log10 pval")
+
+pval_mx_4_corrected = p.adjust(pval_mx_4,method = "fdr")
+plot_df <- data.frame(index = 1:length(pval_mx_4_corrected), pval = pval_mx_4_corrected)
+ggplot(plot_df, aes(index, -log10(pval_mx_4_corrected))) + geom_point() + xlab("SNP index") + ylab("-log10 pval")
+ggsave("./Results/fdr_GFM1.png")
+
+pval_mx_5_corrected = p.adjust(pval_mx_5,method = "fdr")
+plot_df <- data.frame(index = 1:length(pval_mx_5_corrected), pval = pval_mx_5_corrected)
+ggplot(plot_df, aes(index, -log10(pval_mx_5_corrected))) + geom_point() + xlab("SNP index") + ylab("-log10 pval")
+ggsave("./Results/fdr_MARCH7.png")
+
+```
+
+
+```{r}
+
+num_tests = ncol(xa_mat)
+alpha = .05/num_tests
+normalQuantiles=sort(-log10(seq(1/num_tests, 1, by=1/num_tests)))
+
+## QQ plots
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_1)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red") + xlab("-log10 pval expected") + ylab("-log10 pval")
+print(p1)
+ggsave("./Results/ERAP2_QQ.jpg")
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_2)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red") + xlab("-log10 pval expected") + ylab("-log10 pval")
+print(p1)
+ggsave("./Results/PEX6_QQ.jpg")
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_3)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red") + xlab("-log10 pval expected") + ylab("-log10 pval")
+print(p1)
+ggsave("./Results/FAHD1_QQ.jpg")
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_4)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red") + xlab("-log10 pval expected") + ylab("-log10 pval")
+print(p1)
+ggsave("./Results/GFM1_QQ.jpg")
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_5)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red") + xlab("-log10 pval expected") + ylab("-log10 pval")
+print(p1)
+ggsave("./Results/MARCH7_QQ.jpg")
+
+```
+
+```{r}
+
+num_tests = ncol(xa_mat)
+alpha = .05/num_tests
+normalQuantiles=sort(-log10(seq(1/num_tests, 1, by=1/num_tests)))
+
+## QQ plots
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_1_corrected)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_2_corrected)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_3_corrected)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_4_corrected)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_5_corrected)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+```
+```{r}
+
+#pca.result <- prcomp(xa_mat)
+pca.result <- prcomp(xa_mat %*% t(xa_mat))
+#pca.result <- prcomp(xd_mat)
+#pca.result <- prcomp(xd_mat %*% t(xa_mat))
+df = data.frame(PC1 = pca.result$x[,1] , PC2 = pca.result$x[,2])
+ggplot(df,aes(PC1,PC2)) + geom_point()
+ggsave("./Results/PCA_2.jpg")
+
+```
+
+```{r}
+
+# Read covariate data
+
+covar_data <- read.csv("./data_files/covars.csv",header = TRUE, stringsAsFactors = FALSE)
+
+```
+
+
+```{r}
+xz_type <- rep(0,nrow(xa_mat))
+
+for(i in 1:nrow(covar_data)){
+  if(substr(covar_data$X[i],1,2)=='HG'){
+    xz_type[i] = -1
+  }
+  else if (substr(covar_data$X[i],1,2)=='NA'){
+    xz_type[i] = 1
+  }
+}
+
+xz_region <- rep(0,nrow(xa_mat))
+
+for(i in 1:nrow(covar_data)){
+  if(covar_data$Population[i] == 'GBR'){
+    xz_region[i] = 1
+  }
+  else if (covar_data$Population[i] == 'FIN'){
+    xz_region[i] = 2
+  }
+  else if (covar_data$Population[i] == 'CEU'){
+    xz_region[i] = 3
+  }
+  else if (covar_data$Population[i] == 'TSI'){
+    xz_region[i] = 4
+  }
+}
+
+xz_gender <- rep(0,nrow(xa_mat))
+
+for(i in 1:nrow(covar_data)){
+  if(covar_data$Sex[i] == 'MALE'){
+    xz_gender[i] = -1
+  }
+  else if (covar_data$Sex[i] == 'FEMALE'){
+    xz_gender[i] = 1
+  }
+}
+
+xz <- cbind(xz_type,xz_region,xz_gender)
+#xz <- cbind(xz_type,xz_region,xz_gender,pca.result$x[,1],pca.result$x[,2])
+```
+
+
+```{r}
+
+pval_calculator_w_covars <- function(pheno_input, xa_input, xd_input, xz_input){
+  n_samples <-  length(xa_input)
+  X_mx <- cbind(rep(1,length(xa_input)), xa_input, xd_input,xz_input)
+  
+  MLE_beta <- ginv(t(X_mx) %*% X_mx) %*% t(X_mx) %*% pheno_input
+  
+  x_h0 = cbind(rep(1,length(xa_input)), xz_input)
+  MLE_h0 =  ginv(t(x_h0) %*% x_h0) %*% t(x_h0) %*% pheno_input
+  
+  y_hat_0 = x_h0 %*% MLE_h0
+  y_hat_1 = X_mx%*% MLE_beta
+  
+  SSE_theta_0 = sum((pheno_input-y_hat_0)^2)
+  SSE_theta_1 = sum((pheno_input-y_hat_1)^2)  
+  
+  df_M <- 2
+  df_E <- n_samples - 3 - ncol(as.matrix(xz_input))
+  
+  numerator <- (SSE_theta_0-SSE_theta_1) / df_M
+  denom <- SSE_theta_1 / df_E
+  Fstatistic <-numerator / denom
+  
+  
+  # to check if it is correct 
+  pval <- pf(Fstatistic, df_M, df_E,lower.tail = FALSE)
+  return(pval)
+}
+```
+
+```{r}
+
+pval_mx_cov_1 <- rep(0,ncol(xa_mat))
+pval_mx_cov_2 <- rep(0,ncol(xa_mat))
+pval_mx_cov_3 <- rep(0,ncol(xa_mat))
+pval_mx_cov_4 <- rep(0,ncol(xa_mat))
+pval_mx_cov_5 <- rep(0,ncol(xa_mat))
+
+for(i in 1:ncol(xa_mat)){
+  pval_mx_cov_1[i] <- pval_calculator_w_covars(pheno_import$ENSG00000164308.12, xa_mat[,i], xd_mat[,i], xz)
+  pval_mx_cov_2[i] <- pval_calculator_w_covars(pheno_import$ENSG00000124587.9, xa_mat[,i], xd_mat[,i], xz)
+  pval_mx_cov_3[i] <- pval_calculator_w_covars(pheno_import$ENSG00000180185.7, xa_mat[,i], xd_mat[,i], xz)
+  pval_mx_cov_4[i] <- pval_calculator_w_covars(pheno_import$ENSG00000168827.9, xa_mat[,i], xd_mat[,i], xz)
+  pval_mx_cov_5[i] <- pval_calculator_w_covars(pheno_import$ENSG00000136536.9, xa_mat[,i], xd_mat[,i], xz)
+}
+```
+
+## 6(b)
+```{r}
+plot_df <- data.frame(index = 1:length(pval_mx_cov_1), pval = pval_mx_cov_1)
+ggplot(plot_df, aes(index, -log10(pval_mx_cov_1))) + geom_point() + ggtitle("Manhattan Plot with covariates") + xlab("SNP index") + ylab("-log10 pval")
+
+plot_df <- data.frame(index = 1:length(pval_mx_cov_2), pval = pval_mx_cov_2)
+ggplot(plot_df, aes(index, -log10(pval_mx_cov_2))) + geom_point() + ggtitle("Manhattan Plot with covariates") + xlab("SNP index") + ylab("-log10 pval")
+
+plot_df <- data.frame(index = 1:length(pval_mx_cov_3), pval = pval_mx_cov_3)
+ggplot(plot_df, aes(index, -log10(pval_mx_cov_3))) + geom_point() + ggtitle("Manhattan Plot with covariates") + xlab("SNP index") + ylab("-log10 pval")
+
+plot_df <- data.frame(index = 1:length(pval_mx_cov_4), pval = pval_mx_cov_4)
+ggplot(plot_df, aes(index, -log10(pval_mx_cov_4))) + geom_point() + ggtitle("Manhattan Plot with covariates") + xlab("SNP index") + ylab("-log10 pval")
+
+plot_df <- data.frame(index = 1:length(pval_mx_cov_5), pval = pval_mx_cov_5)
+ggplot(plot_df, aes(index, -log10(pval_mx_cov_5))) + geom_point() + ggtitle("Manhattan Plot with covariates") + xlab("SNP index") + ylab("-log10 pval")
+```
+
+```{r}
+
+# Bonferrroni
+
+c=0
+for(j in pval_mx_cov_1){
+  if(j < 0.05/N){
+    c=c+1
+  }
+}
+no_of_sig_snips = c
+cat("Number of significant SNP's for 1st phenotype : ",no_of_sig_snips,"\n")
+
+c=0
+for(j in pval_mx_cov_2){
+  if(j < 0.05/N){
+    c=c+1
+  }
+}
+no_of_sig_snips = c
+cat("Number of significant SNP's for 2nd phenotype : ",no_of_sig_snips,"\n")
+
+c=0
+for(j in pval_mx_cov_3){
+  if(j < 0.05/N){
+    c=c+1
+  }
+}
+no_of_sig_snips = c
+cat("Number of significant SNP's for 3rd phenotype : ",no_of_sig_snips,"\n")
+
+c=0
+for(j in pval_mx_cov_4){
+  if(j < 0.05/N){
+    c=c+1
+  }
+}
+no_of_sig_snips = c
+cat("Number of significant SNP's for 4th phenotype : ",no_of_sig_snips,"\n")
+
+c=0
+for(j in pval_mx_cov_5){
+  if(j < 0.05/N){
+    c=c+1
+  }
+}
+no_of_sig_snips = c
+cat("Number of significant SNP's for 5th phenotype : ",no_of_sig_snips,"\n")
+```
+
+
+
+```{r}
+
+i1 = which(pval_mx_1 == min(pval_mx_1))
+rs_id1 = colnames(geno_data)[i1]
+pos1 = SNP_info[SNP_info$id %in% rs_id1,]
+gene1 = gene_info[gene_info$chromosome==pos1[1,1],]$symbol
+gene1 = cbind(pos1, symbol=gene1)
+
+```
+
+
+```{r}
+
+num_tests = ncol(xa_mat)
+alpha = .05/num_tests
+normalQuantiles=sort(-log10(seq(1/num_tests, 1, by=1/num_tests)))
+
+## QQ plots
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_cov_1)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_cov_2)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_cov_3)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_cov_4)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_cov_5)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+```
+
+```{r}
+
+pval_mx_cov_1_corrected = p.adjust(pval_mx_cov_1,method = "fdr")
+plot_df <- data.frame(index = 1:length(pval_mx_cov_1_corrected), pval = pval_mx_cov_1_corrected)
+ggplot(plot_df, aes(index, -log10(pval_mx_1_corrected))) + geom_point() + ggtitle("Manhattan Plot") + xlab("SNP index") + ylab("-log10 pval")
+
+pval_mx_cov_2_corrected = p.adjust(pval_mx_cov_2,method = "fdr")
+plot_df <- data.frame(index = 1:length(pval_mx_cov_2_corrected), pval = pval_mx_cov_2_corrected)
+ggplot(plot_df, aes(index, -log10(pval_mx_2_corrected))) + geom_point() + ggtitle("Manhattan Plot") + xlab("SNP index") + ylab("-log10 pval")
+
+pval_mx_cov_3_corrected = p.adjust(pval_mx_cov_3,method = "fdr")
+plot_df <- data.frame(index = 1:length(pval_mx_cov_3_corrected), pval = pval_mx_cov_3_corrected)
+ggplot(plot_df, aes(index, -log10(pval_mx_3_corrected))) + geom_point() + ggtitle("Manhattan Plot") + xlab("SNP index") + ylab("-log10 pval")
+
+pval_mx_cov_4_corrected = p.adjust(pval_mx_cov_4,method = "fdr")
+plot_df <- data.frame(index = 1:length(pval_mx_cov_4_corrected), pval = pval_mx_cov_4_corrected)
+ggplot(plot_df, aes(index, -log10(pval_mx_4_corrected))) + geom_point() + ggtitle("Manhattan Plot") + xlab("SNP index") + ylab("-log10 pval")
+
+pval_mx_cov_5_corrected = p.adjust(pval_mx_cov_5,method = "fdr")
+plot_df <- data.frame(index = 1:length(pval_mx_cov_5_corrected), pval = pval_mx_cov_5_corrected)
+ggplot(plot_df, aes(index, -log10(pval_mx_5_corrected))) + geom_point() + ggtitle("Manhattan Plot") + xlab("SNP index") + ylab("-log10 pval")
+
+```
+
+```{r}
+
+num_tests = ncol(xa_mat)
+alpha = .05/num_tests
+normalQuantiles=sort(-log10(seq(1/num_tests, 1, by=1/num_tests)))
+
+## QQ plots
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_cov_1_corrected)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_cov_2_corrected)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_cov_3_corrected)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_cov_4_corrected)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+qqDf <- data.frame(ps=sort(-log10(pval_mx_cov_5_corrected)), normalQuantiles)
+p1 = ggplot(qqDf)+geom_point(aes(normalQuantiles, ps))
+p1 = p1+ geom_abline(intercept = 0, slope = 1, color="red")
+print(p1)
+
+```
+
